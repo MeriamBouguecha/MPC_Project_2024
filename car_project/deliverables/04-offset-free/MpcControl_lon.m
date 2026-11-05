@@ -1,0 +1,152 @@
+classdef MpcControl_lon < MpcControlBase
+    
+    methods
+        % Design a YALMIP optimizer object that takes a steady-state state
+        % and input (xs, us) and returns a control input
+        function ctrl_opti = setup_controller(mpc)
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % INPUTS
+            %   x0           - initial state (estimate)
+            %   x_ref, u_ref - reference state/input
+            % OUTPUTS
+            %   u0           - input to apply to the system
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            N_segs = ceil(mpc.H/mpc.Ts); % Horizon steps
+            N = N_segs + 1;              % Last index in 1-based Matlab indexing
+
+            [nx, nu] = size(mpc.B);
+            
+            % Targets
+            x_ref = sdpvar(nx, 1); % shape = (2, 1)
+            u_ref = sdpvar(nu, 1); % shape = (1, 1)
+
+            % Disturbance estimate (Ignore this before Todo 4.1)
+            d_est = sdpvar(1);
+
+            % Initial states
+            x0 = sdpvar(nx, 1);
+            x0other = sdpvar(nx, 1); % (Ignore this, not used)
+
+            % Input to apply to the system
+            u0 = sdpvar(nu, 1);
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            % NOTE: The matrices mpc.A, mpc.B, mpc.C and mpc.D
+            %       are the DISCRETE-TIME MODEL of your system
+            %       You can find the linearization steady-state
+            %       in mpc.xs and mpc.us.
+            
+            % SET THE PROBLEM CONSTRAINTS con AND THE OBJECTIVE obj HERE
+            X = sdpvar(nx, N);    % (2xN) State trajectory --> [pos, velocity]
+            U = sdpvar(nu, N-1);  % (1x(N-1)) Input trajectory --> [acceleration input]
+
+            disp(['Size of A: ', mat2str(size(mpc.A))]);
+            disp(['Size of B: ', mat2str(size(mpc.B))]);
+
+            % define Q and R matrix
+            R = 100;
+            Q = diag([0.01, 20]);
+            disp(['Q matrix: ', mat2str(Q)]);
+            disp(['R matrix: ', mat2str(R)]);
+
+            %constraints on input
+            M = [1;-1]; m = [1; 1];
+
+            % Compute LQR controller for unconstrained system
+            [K,Qf,~] = project_dlqr(mpc.A,mpc.B,Q,R);
+            % MATLAB defines K as -K, so invert its signal
+            K=-K;
+            Acl= mpc.A+mpc.B*K;
+
+            % Compute maximal invariant set
+            Xf = polytope([M*K],[m]);
+            Acl = [mpc.A+mpc.B*K];
+            while 1
+                prevXf = Xf;
+                [T,t] = double(Xf);
+                preXf = polytope(T*Acl,t);
+                Xf = intersect(Xf, preXf);
+                if isequal(prevXf, Xf)
+                    break
+                end
+            end
+            [Ff,ff] = double(Xf);
+
+            obj = 0;
+            con = [];
+
+            % initial constraint
+            con = [con, X(:,1) == x0];
+
+            for i = 1:N-1
+
+                % state transition equation
+                con = [con, X(:,i+1)-mpc.xs == mpc.A * (X(:,i)-mpc.xs) + mpc.B * (U(:,i)-mpc.us+d_est)];
+      
+                % constraint on the acceleration signal
+                con = [con, M * U(:,i) <= m];
+
+                % objective function
+                obj = obj + (X(2,i) - x_ref(2,1))' * Q(2,2) * (X(2,i) - x_ref(2,1));
+                obj = obj + (U(:,i) - u_ref)'* R* (U(:,i) - u_ref);
+            end
+
+            % set final objective
+            obj = obj + (X(2,N) - x_ref(2, 1))' * Qf(2,2) * (X(2,N) - x_ref(2,1));
+
+
+            % Replace this line and set u0 to be the input that you
+            % want applied to the system. Note that u0 is applied directly
+            % to the nonlinear system. You need to take care of any 
+            % offsets resulting from the linearization.
+            % If you want to use the delta formulation make sure to
+            % substract mpc.xs/mpc.us accordingly.
+            
+            con = con + (u0 == U(:,1)); 
+
+            % Pass here YALMIP sdpvars which you want to debug. You can
+            % then access them when calling your mpc controller like
+            % [u, X, U] = mpc_lat.get_u(x0, ref);
+            % with debugVars = {X_var, U_var};
+            debugVars = {X, U};
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            % Return YALMIP optimizer object
+            ctrl_opti = optimizer(con, obj, project_solver(), ...
+                {x0, x_ref, u_ref, d_est, x0other}, {u0, debugVars{:}});
+        end
+        
+        % Computes the steady state target which is passed to the
+        % controller
+        function [xs_ref, us_ref] = compute_steady_state_target(mpc, ref, d_est)
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % INPUTS
+            %   ref    - reference to track
+            % OUTPUTS
+            %   xs_ref, us_ref - steady-state target
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+            % Steady-state system
+            A = mpc.A;
+            B = mpc.B;
+
+            % Linearization steady-state
+            xs = mpc.xs;
+            us = mpc.us;
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            xs_ref = [0; ref];
+
+            A22 = A(2,2);
+            B2  = B(2);
+            us_ref = us+((1-A22)/B2)*(xs_ref(2)-xs(2))-d_est ;
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        end
+    end
+end

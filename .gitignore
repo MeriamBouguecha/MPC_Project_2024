@@ -1,0 +1,15 @@
+.DS_Store
+__MACOSX/
+._*
+*.asv
+*.m~
+slprj/
+*.log
+__pycache__/
+.venv/
+.matlab/
+tmp/
+.dependencies/
+dist/
+.local-backups/
+

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Highway MPC · Simulation replay</title>
+<style>
+:root{color-scheme:dark;--bg:#080f18;--panel:#101b29;--line:#253345;--text:#e9f0f7;--muted:#91a4b8;--cyan:#49dfce;--gold:#ffbc68}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,sans-serif}main{max-width:1440px;margin:auto;padding:32px 40px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:22px}.brand{font-size:14px;letter-spacing:2px;font-weight:750}.brand span{color:var(--cyan)}.tag{border:1px solid var(--line);border-radius:30px;padding:7px 14px;color:var(--muted);font-size:12px}.intro{display:flex;justify-content:space-between;gap:24px;align-items:end;margin:30px 0 24px}.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:2px;text-transform:uppercase}h1{font-size:clamp(28px,3.1vw,44px);line-height:1.15;letter-spacing:-1.5px;margin:9px 0 12px}p{color:var(--muted);margin:0}select,button{font:inherit;border:1px solid var(--line);border-radius:9px;background:#142233;color:var(--text);padding:10px 14px;cursor:pointer}button:hover,select:hover{border-color:var(--cyan)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:4px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metric{padding:17px 22px;background:var(--panel);border:1px solid var(--line);border-radius:12px}.label{font-size:11px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}.value{font-size:29px;letter-spacing:-1px;margin-top:4px;font-variant-numeric:tabular-nums}.unit{color:var(--muted);font-size:13px;letter-spacing:0;margin-left:5px}.road-panel{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}.panel-top{display:flex;justify-content:space-between;padding:16px 22px;gap:10px;align-items:center}.panel-title{font-weight:600;font-size:13px}.legend{display:flex;gap:20px;font-size:11px;color:var(--muted)}.legend span:before{content:'';display:inline-block;width:15px;height:2px;vertical-align:middle;margin-right:6px;background:var(--cyan)}.legend span:nth-child(2):before{background:var(--gold)}.legend span:nth-child(3):before{background:#8292a4}#road{display:block;width:100%;height:280px;background:#0b1520}.controls{display:flex;align-items:center;gap:16px;padding:16px 22px;border-top:1px solid var(--line)}#play{background:var(--cyan);color:#062822;border:none;min-width:90px;font-weight:650}#scrub{flex:1;accent-color:var(--cyan);min-width:30px}#clock{font:12px ui-monospace,monospace;color:var(--muted);min-width:100px}.charts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:18px}.chart{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:17px 18px 8px;min-width:0}.chart-title{display:flex;justify-content:space-between;font-size:12px;font-weight:650}.chart-title span{color:var(--muted);font-weight:400}.chart canvas{width:100%;height:165px;display:block}.bottom{display:flex;align-items:start;justify-content:space-between;gap:30px;margin-top:22px;font-size:12px;color:var(--muted)}#result{color:var(--cyan)}details{margin-top:24px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:12px}summary{cursor:pointer;color:var(--text)}details p{max-width:900px;margin-top:10px}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:850px){main{padding:20px}.intro{display:block}.intro select{margin-top:20px;width:100%}.metrics{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.legend{gap:8px}.panel-top{flex-wrap:wrap}.bottom{display:block}.bottom p{margin-top:10px}.controls{gap:9px;padding:12px}#road{height:240px}.tag{display:none}#clock{min-width:85px;font-size:10px}}
+</style>
+</head>
+<body><main>
+<header><div class="brand"><span>↗</span> HIGHWAY / MPC</div><div class="tag">EPFL ME-425 · Recovered team implementation · Vehicle MPC</div></header>
+<div class="intro"><div><div class="eyebrow">Predict. Optimize. Drive.</div><h1 id="title">Highway lane change</h1><p id="description"></p></div><label><span class="sr">Simulation scenario</span><select id="scenario"></select></label></div>
+<section class="metrics" aria-label="Current vehicle state">
+<div class="metric"><div class="label">Vehicle speed</div><div class="value"><span id="speed">80.0</span><span class="unit">km/h</span></div></div>
+<div class="metric"><div class="label">Lateral position</div><div class="value"><span id="lateral">0.00</span><span class="unit">m</span></div></div>
+<div class="metric"><div class="label">Heading</div><div class="value"><span id="heading">0.00</span><span class="unit">deg</span></div></div>
+<div class="metric"><div class="label">Throttle command</div><div class="value"><span id="throttle">0.00</span><span class="unit">[−1, 1]</span></div></div>
+</section>
+<section class="road-panel" aria-label="Animated simulation">
+<div class="panel-top"><div class="panel-title">Vehicle & road position</div><div class="legend"><span>Nonlinear trajectory</span><span>Lead vehicle</span><span>Lane center</span></div></div>
+<canvas id="road" role="img" aria-label="Top-down highway replay showing vehicle position and predicted lateral trajectory"></canvas>
+<div class="controls"><button id="play" type="button">Play</button><button id="reset" type="button" aria-label="Restart replay">↺</button><label class="sr" for="scrub">Simulation time</label><input id="scrub" type="range" min="0" max="100" value="0" step="0.01"><span id="clock">0.0 / 18.0 s</span><label><span class="sr">Playback speed</span><select id="rate"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label></div>
+</section>
+<section class="charts" aria-label="Simulation telemetry">
+<div class="chart"><div class="chart-title">Speed tracking <span>km/h</span></div><canvas id="speedChart" role="img" aria-label="Measured and reference speed over time"></canvas></div>
+<div class="chart"><div class="chart-title">Lane tracking <span>m</span></div><canvas id="laneChart" role="img" aria-label="Measured and reference lateral position over time"></canvas></div>
+<div class="chart"><div class="chart-title">Steering & heading <span>deg</span></div><canvas id="angleChart" role="img" aria-label="Steering input and vehicle heading over time"></canvas></div>
+<div class="chart"><div class="chart-title">Throttle command <span>normalized</span></div><canvas id="throttleChart" role="img" aria-label="Throttle command over time"></canvas></div>
+<div class="chart"><div class="chart-title"><span id="extraTitle">Distance travelled</span><span id="extraUnit">m</span></div><canvas id="distChart" role="img" aria-label="Estimated disturbance and injected plant bias over time"></canvas></div>
+<div class="chart"><div class="chart-title">Tracking error <span>km/h</span></div><canvas id="errorChart" role="img" aria-label="Speed tracking error over time"></canvas></div>
+</section>
+<div class="bottom"><div id="result"></div><p>10 Hz control · Nonlinear: 10 s horizon · Linear: 5 s horizon<br>Space to play/pause · Arrow keys to seek · Drag the timeline to explore</p></div>
+<details><summary>About this simulation & credits</summary><p>These trajectories were computed with the recovered team controllers from niklashcs/mpc_epfl (Niklas Schröder, Mariem Bougacha, and Jessie Staudenmann). The linear scenarios use the recovered YALMIP formulations and longitudinal observer. The nonlinear controllers keep the original CasADi/IPOPT formulation, 10 s horizon, objective weights, and RK4 model. The avoidance version corrects an extra state/input allocation so every constrained state is connected to the dynamics. The lead vehicle is projected at constant speed inside the optimizer. The replay is computed telemetry; it does not run an optimizer in the browser. Lateral display scaling is enlarged for legibility. The ellipse is a modeled separation constraint, not a certified collision avoidance guarantee. The accompanying source manifest, cleanup notes, and validation report describe provenance and tested limits.</p></details>
+</main>
+<script id="simulation-data" type="application/json">__SIMULATION_DATA__</script>
+<script>
+'use strict';
+const DATA=JSON.parse(document.getElementById('simulation-data').textContent);
+const $=id=>document.getElementById(id), cyan='#49dfce',gold='#ffbc68',muted='#91a4b8';
+let sim=DATA[0],time=0,playing=false,last=null;
+const scenario=$('scenario');DATA.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=s.title;scenario.append(o)});
+function fit(id){const c=$(id),rect=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;c.width=Math.round(rect.width*dpr);c.height=Math.round(rect.height*dpr);const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return [ctx,rect.width,rect.height]}
+function index(){return Math.min(sim.states.length-1,Math.floor(time/sim.dt+1e-7))}
+function state(){const i=index(),j=Math.min(i+1,sim.states.length-1),f=(time-sim.t[i])/sim.dt;return sim.states[i].map((v,k)=>v+(sim.states[j][k]-v)*f)}
+function line(ctx,points,color,width=2,dashed=false){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashed?[5,5]:[]);points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.stroke();ctx.setLineDash([])}
+function road(){const [c,w,h]=fit('road'),x=state(),i=index(),sx=w/100,sy=27,cy=h/2+1.5*sy;
+ const X=v=>w*.26+(v-x[0])*sx,Y=v=>cy-v*sy;
+ c.fillStyle='#101f2d';c.fillRect(0,Y(4.5),w,Y(-1.5)-Y(4.5));
+ line(c,[[0,Y(-1.5)],[w,Y(-1.5)]],'#556779',2);line(c,[[0,Y(4.5)],[w,Y(4.5)]],'#556779',2);
+ const start=Math.floor((x[0]-40)/9)*9;
+ for(let p=start;p<x[0]+100;p+=9)line(c,[[X(p),Y(1.5)],[X(p+3),Y(1.5)]],'#6a7c8d',2);
+ line(c,[[0,Y(0)],[w,Y(0)]],'#233749',1,true);line(c,[[0,Y(3)],[w,Y(3)]],'#233749',1,true);
+ const trace=sim.states.slice(Math.max(0,i-70),i+1).map(s=>[X(s[0]),Y(s[1])]);trace.push([X(x[0]),Y(x[1])]);line(c,trace,cyan,2.5);
+ if(sim.predictionY && i<sim.predictionY.length){const p=sim.predictionY[i].map((y,k)=>[X(sim.states[i][0]+sim.states[i][3]*sim.dt*(k+1)),Y(y)]);p.unshift([X(sim.states[i][0]),Y(sim.states[i][1])]);line(c,p,gold,2,true)}
+ if(sim.otherStates?.length){const lead=sim.otherStates[i];c.fillStyle=gold;c.beginPath();c.roundRect(X(lead[0])-22,Y(lead[1])-1.8*sy/2,44,1.8*sy,7);c.fill();c.fillStyle='#233749';c.fillRect(X(lead[0])-9,Y(lead[1])-sy*.6,17,sy*1.2);c.fillStyle=gold;c.fillText(`LEAD  ${(lead[3]*3.6).toFixed(0)} km/h`,X(lead[0])-44,Y(lead[1])-36)}
+ c.save();c.translate(X(x[0]),Y(x[1]));c.rotate(-x[2]);
+ // Car width uses the lateral display scale; length has a visual minimum.
+ const length=Math.max(40,4.3*sx),width=1.8*sy;
+ c.shadowColor=cyan;c.shadowBlur=18;c.fillStyle=cyan;c.beginPath();c.roundRect(-length/2,-width/2,length,width,7);c.fill();c.shadowBlur=0;
+ c.fillStyle='#12313b';c.beginPath();c.roundRect(-length*.22,-width*.36,length*.38,width*.72,4);c.fill();c.fillStyle='#ecfff7';c.fillRect(length/2-3,-width*.32,3,9);c.fillRect(length/2-3,width*.32-9,3,9);c.restore();
+ c.font='11px ui-monospace,monospace';c.fillStyle=muted;c.fillText('LANE 02  /  y = 3 m',18,Y(3)-32);c.fillText('LANE 01  /  y = 0 m',18,Y(0)+42);c.fillText(`WORLD X   ${x[0].toFixed(1)} m`,w-190,25);
+ c.fillStyle=gold;c.fillText(`TARGET  ${sim.reference[i][0].toFixed(1)} m / ${(sim.reference[i][1]*3.6).toFixed(0)} km/h`,18,25);
+}
+function chart(id,series,minimum,maximum){const [c,w,h]=fit(id),left=38,right=w-9,top=17,bottom=h-29;
+ let vals=series.flatMap(s=>s.values);let lo=Math.min(minimum,...vals),hi=Math.max(maximum,...vals);const margin=Math.max((hi-lo)*.08,.02);lo-=margin;hi+=margin;
+ const X=t=>left+t/sim.t.at(-1)*(right-left),Y=v=>bottom-(v-lo)/(hi-lo)*(bottom-top);
+ c.font='10px ui-monospace,monospace';c.fillStyle=muted;
+ for(let j=0;j<4;j++){const v=lo+(hi-lo)*j/3,y=Y(v);line(c,[[left,y],[right,y]],'#253345',.7);c.fillText(v.toFixed(hi-lo<2?2:1),0,y+3)}
+ [0,sim.t.at(-1)/2,sim.t.at(-1)].forEach(t=>c.fillText(`${t.toFixed(0)}s`,X(t)-5,h-7));
+ series.forEach(s=>line(c,s.values.map((v,i)=>[X(sim.t[Math.min(i,sim.t.length-1)]),Y(v)]),s.color,1.7,s.dashed));
+ line(c,[[X(time),top],[X(time),bottom]],'#e9f0f780',1,true);
+}
+function draw(){const x=state(),i=index(),u=sim.inputs[Math.min(i,sim.inputs.length-1)];
+ $('speed').textContent=(x[3]*3.6).toFixed(1);$('lateral').textContent=x[1].toFixed(2);$('heading').textContent=(x[2]*180/Math.PI).toFixed(2);$('throttle').textContent=u[1].toFixed(2);$('clock').textContent=`${time.toFixed(1)} / ${sim.t.at(-1).toFixed(1)} s`;$('scrub').value=time;road();
+ chart('speedChart',[{values:sim.states.map(s=>s[3]*3.6),color:cyan},{values:sim.reference.map(s=>s[1]*3.6),color:gold,dashed:true}],40,125);
+ chart('laneChart',[{values:sim.states.map(s=>s[1]),color:cyan},{values:sim.reference.map(s=>s[0]),color:gold,dashed:true}],-.5,3.5);
+ chart('angleChart',[{values:sim.inputs.map(s=>s[0]*180/Math.PI),color:cyan},{values:sim.states.map(s=>s[2]*180/Math.PI),color:gold}],-5,5);
+ chart('throttleChart',[{values:sim.inputs.map(s=>s[1]),color:cyan}],-1,1);
+ if(sim.otherStates?.length){$('extraTitle').textContent='Separation ellipse';$('extraUnit').textContent='≥ 1';chart('distChart',[{values:sim.states.map((s,i)=>(s[0]-sim.otherStates[i][0])**2/144+(s[1]-sim.otherStates[i][1])**2/9),color:cyan},{values:sim.t.map(()=>1),color:gold,dashed:true}],0,3)}else{$('extraTitle').textContent='Distance travelled';$('extraUnit').textContent='m';chart('distChart',[{values:sim.states.map(s=>s[0]),color:cyan}],0,100)}
+ chart('errorChart',[{values:sim.states.map((s,i)=>(s[3]-sim.reference[i][1])*3.6),color:cyan}],-1,1);
+}
+function pause(){playing=false;$('play').textContent='Play'}
+function toggle(){if(time>=sim.t.at(-1))time=0;playing=!playing;$('play').textContent=playing?'Pause':'Play';last=null}
+function choose(){pause();sim=DATA[Number(scenario.value)];time=0;$('title').textContent=sim.title;$('description').textContent=sim.description;$('scrub').max=sim.t.at(-1);const m=sim.metrics;$('result').textContent=`${m.constraintViolation<=1e-5?'✓ Sampled constraints satisfied':'Constraint violation detected'} · Final errors: ${m.finalLateralError.toFixed(3)} m / ${m.finalSpeedErrorKmh.toFixed(3)} km/h`;draw()}
+function tick(stamp){if(playing){if(last!==null)time=Math.min(sim.t.at(-1),time+(stamp-last)/1000*Number($('rate').value));last=stamp;if(time>=sim.t.at(-1))pause();draw()}requestAnimationFrame(tick)}
+scenario.addEventListener('change',choose);$('play').addEventListener('click',toggle);$('reset').addEventListener('click',()=>{pause();time=0;draw()});$('scrub').addEventListener('input',e=>{pause();time=Number(e.target.value);draw()});window.addEventListener('resize',draw);
+document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName))return;if(e.code==='Space'){e.preventDefault();toggle()}if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();pause();time=Math.max(0,Math.min(sim.t.at(-1),time+(e.code==='ArrowRight'?1:-1)));draw()}});
+choose();requestAnimationFrame(tick);
+</script></body></html>

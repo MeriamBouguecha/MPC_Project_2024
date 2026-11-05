@@ -45,7 +45,7 @@ switch part
         end
     case 'tube-mpc'
         error('Project:TubeReview', ['The recovered tube MPC sources are preserved, but have unresolved ' ...
-            'model/set inconsistencies. See docs/VALIDATION.md before running the legacy script.']);
+            'model/set inconsistencies. Part 5 is experimental; select a supported scenario instead.']);
 end
 result = simulate(params);
 assert(result.T(end) >= params.Tf,'Project:Aborted','Simulation aborted before its requested end time.');

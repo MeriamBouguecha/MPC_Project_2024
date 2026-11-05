@@ -12,4 +12,6 @@ tmp/
 .dependencies/
 dist/
 .local-backups/
+archive/
+*.zip
 

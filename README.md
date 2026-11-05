@@ -118,25 +118,5 @@ The JavaScript checks exercise replay data and playback handlers in a small test
 
 Original repository: **[niklashcs/mpc_epfl](https://github.com/niklashcs/mpc_epfl)**.
 
-Team contributors recorded in its history: **[Niklas Schröder](https://github.com/niklashcs)**, **[MeriamBouguecha](https://github.com/MeriamBouguecha)**, and **[jessiestaudenmann](https://github.com/jessiestaudenmann)**. The vehicle model, simulation framework, and project brief originate in the EPFL course material.
+Team contributors: **[Niklas Schröder](https://github.com/niklashcs)**, **[MeriamBouguecha](https://github.com/MeriamBouguecha)**, and **[jessiestaudenmann](https://github.com/jessiestaudenmann)**. The vehicle model, simulation framework, and project brief originate in the EPFL course material.
 
-Recovered sources use the latest relevant versions of each part from `Mariem`, `Jessie`, and `niklas_6`; `main` contains the starter version. Branch archives preserve the source snapshots. The cleanup adds a launcher, compatibility fixes, tests, documentation, and visual replay. It does not present those additions as part of the original submission.
-
-No LICENSE file was present in the recovered upstream branches. This cleanup does not assign a new license to the original course or team material.
-
-## Put it on your GitHub
-
-Create an empty repository, then upload the contents of the clean ZIP using **Add file → Upload files**. Extract the ZIP first so `README.md`, `car_project/`, and `docs/` are at the repository root.
-
-Alternatively, from this folder, with Git installed and an empty remote repository already created:
-
-```sh
-git init
-git add .
-git commit -m "Organize MPC project and add simulation replay"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-git push -u origin main
-```
-
-Replace the remote URL with your repository URL. `.dependencies/`, local backups, and distribution ZIPs are ignored. Nothing is published automatically.
